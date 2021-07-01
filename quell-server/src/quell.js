@@ -221,7 +221,7 @@ class QuellCache {
       },
       Field: {
         enter(node) {
-          // return introspection queries as unQuellable to not cache them
+          // return introspection queries as unQuellable
           // "__keyname" syntax is later used for Quell's field-specific options, though this does not create collision with introspection
           if (node.name.value.includes('__')) {
             operationType = 'unQuellable';
