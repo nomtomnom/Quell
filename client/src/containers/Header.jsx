@@ -26,7 +26,7 @@ const Header = () => {
           <a href='#team-quell'>TEAM</a>
         </li>
         <li>
-          <a href='https://github.com/oslabs-beta/Quell' target='_blank'>
+          <a href='https://github.com/open-source-labs/Quell' target='_blank'>
             GITHUB
           </a>
         </li>
