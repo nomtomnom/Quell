@@ -11,10 +11,12 @@ const { parse } = require('graphql/language/parser');
 
 // default options so parseAST doesn't have to supply everything
 const defaultOptions = {
-  userDefinedID: null
-}
+  userDefinedID: '',
+  depthLimit: 100,
+};
 
-const parseAST = (AST, options = defaultOptions) => {
+const parseAST = (AST, userOptions) => {
+  const options = { ...defaultOptions, ...userOptions };
   // initialize prototype as empty object
   // information from AST is distilled into the prototype for easy access during caching, rebuilding query strings, etc.
   const proto= {};
@@ -24,18 +26,16 @@ const parseAST = (AST, options = defaultOptions) => {
 
   let operationType = '';
 
-  // initialize stack to keep track of depth first parsing path
+  // initialize stack to track path of depth first traversal
+  // length of stack tracks current depth for depth-limiting
   const stack = [];
-
-  // tracks depth of selection Set
-  let selectionSetDepth = 0;
 
   // tracks arguments, aliases, etc. for specific fields
   // eventually merged with prototype object
   const fieldArgs = {};
 
   // extract options
-  const userDefinedID = options.__userDefinedID;
+  const userDefinedID = options.userDefinedID;
 
   /**
    * visit is a utility provided in the graphql-JS library. It performs a
@@ -151,18 +151,20 @@ const parseAST = (AST, options = defaultOptions) => {
 
         // add value to stacks to keep track of depth-first parsing path
         stack.push(fieldType);
+        // depth-limit queries
+        if (options.depthLimit && stack.length > options.depthLimit) {
+          operationType = 'REJECT';
+          return BREAK;
+        }
       },
       leave() {
         // pop stacks to keep track of depth-first parsing path
         stack.pop();
       },
     },
-    SelectionSet: {
+    SelectionSet(node, key, parent, path, ancestors) {
       // selection sets contain all of the sub-fields
       // iterate through the sub-fields to construct fieldsObject
-      enter(node, key, parent, path, ancestors) {
-        selectionSetDepth++;
-
       /* Exclude SelectionSet nodes whose parents' are not of the kind
        * 'Field' to exclude nodes that do not contain information about
        *  queried fields.
@@ -194,13 +196,8 @@ const parseAST = (AST, options = defaultOptions) => {
               : (prev[curr] = prev[curr]); // otherwise, if index exists, keep value
           }, targetObj);
         }
-      },
-      leave() {
-        // tracking depth of selection set
-        selectionSetDepth--;
-      },
-    },
-  });
+      }
+    });
   return { proto, operationType, frags };
 };
 

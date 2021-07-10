@@ -8,7 +8,8 @@
  @param {object} protoField - the prototype object, or a section of the prototype object, for accessing arguments, aliases, etc.
  * fieldsMap: potentially deprecated?
  */
-function normalizeForCache(responseData, map = {}, protoField, subID, fieldsMap = {}) {
+function normalizeForCache(responseData, map = {}, protoField, nested = false) {
+  let cachedItem;
   // if we are recursing, we want to add a subid before caching
 
   // iterate over keys in our response data object 
@@ -18,8 +19,6 @@ function normalizeForCache(responseData, map = {}, protoField, subID, fieldsMap 
     const currProto = protoField[resultName];
     // check if the value stored at that key is array 
     if (Array.isArray(currField)) {
-
-      const cacheKey = subID ? subID + '--' + resultName : resultName
       // create empty array to store refs
       const refList = [];
 
@@ -47,7 +46,12 @@ function normalizeForCache(responseData, map = {}, protoField, subID, fieldsMap 
           normalizeForCache({ [dataType]: el }, map,  { [dataType]: currProto});
         }
       }
-      sessionStorage.setItem(cacheKey, JSON.stringify(refList));
+      cachedItem = refList;
+      // only want to directly store the reflist in circumstances where array is the base level component
+      // otherwise will be returned and stored on parent object
+      if (!nested) {
+        sessionStorage.setItem(resultName, JSON.stringify(refList));
+      }
     }
     else if (typeof currField === 'object') {
       // need to get non-Alias ID for cache
@@ -70,18 +74,23 @@ function normalizeForCache(responseData, map = {}, protoField, subID, fieldsMap 
         if (!currProto.__id && (key === 'id' || key === '_id' || key === 'ID' || key === 'Id')) {
           cacheID += `--${currField[key]}`;
         }
+
+        // fieldStore grabs copies of EVERY value
         fieldStore[key] = currField[key];
 
         // if object, recurse normalizeForCache assign in that object
         // must also pass in protoFields object to pair arguments, aliases with response
         if (typeof currField[key] === 'object') {
-          normalizeForCache({ [key]: currField[key] }, map, { [key]: protoField[resultName][key]}, cacheID);
+          fieldStore[key] = normalizeForCache({ [key]: currField[key] }, map, { [key]: protoField[resultName][key]}, true);
         }
       }
       // store "current object" on cache in JSON format
+      cachedItem = fieldStore;
       sessionStorage.setItem(cacheID, JSON.stringify(fieldStore));
     }
   }
+  // console.log('return', cachedItem);
+  return cachedItem;
 }
 
 // Saves item/s to cache and omits any 'uncacheable' items
@@ -89,6 +98,7 @@ async function writeToCache(key, item) {
   if (!key.includes('uncacheable')) {
     const cacheItem = await sessionStorage.getItem(key);
     const parsedItem = JSON.parse(cacheItem);
+    
     // if item is an array, set to just stash the item, otherwise merge objects
     const fullItem = Array.isArray(item)
       ? item

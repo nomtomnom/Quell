@@ -17,11 +17,13 @@ const defaultOptions = {
   // configures type of cache storage used (client-side only)
   __cacheType: 'session',
   // custom field that defines the uniqueID used for caching
-  __userDefinedID: null,
+  userDefinedID: null,
   // default fetchHeaders, user can overwrite
   headers: {
     'Content-Type': 'application/json',
   },
+  // default depth limit, user can overwrite
+  depthLimit: 100,
 };
 
 /**
@@ -69,8 +71,12 @@ async function Quellify(endPoint, query, map, userOptions) {
 
   const { proto, operationType, frags } = parseAST(AST, options);
 
-  // pass-through for queries and operations that QuellCache cannot handle
-  if (operationType === 'unQuellable') {
+  
+  if (operationType === 'REJECT') {
+    // rejection for queries and operations that Quell is told not to handle (ie extreme depth)
+    return new Promise((resolve, reject) => reject('error parsing query'));
+  } else if (operationType === 'unQuellable') {
+    // pass-through for queries and operations that Quell cannot handle
     const fetchOptions = {
       method: 'POST',
       headers: options.headers,

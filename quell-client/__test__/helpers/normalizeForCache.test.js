@@ -1,11 +1,8 @@
 const normalizeForCache = require('../../src/helpers/normalizeForCache');
 
-// normalizeForCache does not return any values, rather writes to the cache
-// way to mock sessionStorage like in buildFromCache tests?
-
 describe('normalizeForCache.test.js', () => {
   // inputs: response data object
-  // outputs: none, but values should be on session storage when done 
+  // outputs: cached object
   beforeEach(() => {
     sessionStorage.clear();
   })
@@ -341,11 +338,11 @@ describe('normalizeForCache.test.js', () => {
 
   test('a response with alias values can go to the cache', () => {
     const responseObj = {
-        USA: {
-          id: '1',
-          name: 'United States of America',
-          location: 'Northern Hemisphere'
-        },
+      USA: {
+        id: '1',
+        name: 'United States of America',
+        location: 'Northern Hemisphere'
+      },
     };
 
     const prototype = {
@@ -373,5 +370,81 @@ describe('normalizeForCache.test.js', () => {
         "location": "Northern Hemisphere"
       })
     );
-  })
+  });
+
+  test('a response with a nested array should cache an object with a nested array of refs, and individual entries for each ref', () => {
+    const responseObj = {
+      country: {
+        id: '1',
+        name: 'Colombia',
+        cities: [
+          {
+            id: '1',
+            name: 'Angelatown'
+          },
+          {
+            id: '2',
+            name: 'Roblehville'
+          },
+          {
+            id: '3',
+            name: 'Kenland'
+          }
+        ]
+      }
+    };
+
+    const prototype = {
+      country: {
+        id: true,
+        name: true,
+        __id: '1',
+        __args: { id: '1' },
+        __alias: null,
+        __type: 'country',
+        cities: {
+          id: true,
+          name: true,
+          __id: null,
+          __args: null,
+          __alias: null,
+          __type: 'cities',
+        },
+      }
+    };
+    
+    const map = {
+      countries: 'country',
+      cities: 'city'
+    };
+
+    normalizeForCache(responseObj, map, prototype);
+
+    expect(sessionStorage.getItem('country--1')).toEqual(
+      JSON.stringify({
+        id: '1',
+        name: "Colombia",
+        cities: ['city--1', 'city--2', 'city--3']
+      })
+    );
+    expect(sessionStorage.getItem('city--1')).toEqual(
+      JSON.stringify({
+        id: '1',
+        name: 'Angelatown'
+      })
+    );
+    expect(sessionStorage.getItem('city--2')).toEqual(
+      JSON.stringify({
+        id: '2',
+        name: 'Roblehville'
+      })
+    );
+    expect(sessionStorage.getItem('city--3')).toEqual(
+      JSON.stringify({
+        id: '3',
+        name: 'Kenland'
+      })
+    );
+    expect(sessionStorage.getItem('country--1--cities')).toEqual(null);
+  });
 });

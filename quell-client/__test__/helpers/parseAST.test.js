@@ -30,7 +30,7 @@ describe('parseAST.js', () => {
     expect(operationType).toBe('query');
   });
 
-  test('should return a proto from a nested query', () => {
+  test('should create a proto from a nested query', () => {
     const query = `query {
       countries {
          id
@@ -73,7 +73,7 @@ describe('parseAST.js', () => {
     expect(operationType).toEqual('query');
   });
 
-  test('should work with multiple arguments', () => {
+  test('should create a proto with multiple arguments', () => {
     const query = `query {
       country(id: 1, name: "USA") {
         id
@@ -286,7 +286,7 @@ describe('parseAST.js', () => {
     expect(operationType).toBe('query');
   });
 
-  test('EDGE- should create proto for query with alias even without arguments', () => {
+  test('should create proto for query with alias even without arguments', () => {
     const query = `query {
       Canada: country {
         id
@@ -481,6 +481,54 @@ describe('parseAST.js', () => {
       }
     });
     expect(operationType).toBe('query');
+  });
+
+  test('should reject nested queries exceeding depth limit, should NOT create entire prototype', () => {
+    const query = `query {
+      countries {
+         id
+         name
+         capitol
+         cities {
+            id
+            country_id
+            name
+            population
+            mayor {
+              id
+              name
+            }
+          }
+        }
+      }`;
+    
+    const options = { depthLimit: 2 }
+    
+    const AST = parse(query);
+    const { proto, operationType , frags } = parseAST(AST, options);
+
+    expect(proto).toEqual({
+      countries: {
+        __type: 'countries',
+        __args: null,
+        __alias: null,
+        __id: null,
+        id: true,
+        name: true,
+        capitol: true,
+        cities: {
+          __type: 'cities',
+          __args: null,
+          __alias: null,
+          __id: null,
+          id: true, 
+          country_id: true, 
+          name: true, 
+          population: true,
+        },
+      },
+    });
+    expect(operationType).toEqual('REJECT');
   });
 });
 
